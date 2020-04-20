@@ -1,11 +1,13 @@
 import fs from 'fs';
 import csv from 'csvtojson';
 import path from 'path';
+import { getRepository } from 'typeorm';
 import Transaction from '../models/Transaction';
 import uploadConfig from '../config/upload';
 
 import CreateTransactionsService from './CreateTransactionService';
 import AppError from '../errors/AppError';
+import TransactionsRepository from '../repositories/TransactionsRepository';
 
 class ImportTransactionsService {
   async execute(filename: string): Promise<Transaction[]> {
@@ -13,13 +15,15 @@ class ImportTransactionsService {
     const filePath = path.join(uploadConfig.directory, filename);
     const pathExists = await fs.promises.stat(filePath);
 
+    const transactionsRepository = getRepository(TransactionsRepository);
+
     if (!pathExists) {
       throw new AppError('File not found');
     }
 
     const toCsvFile = await csv({ checkType: true }).fromFile(filePath);
 
-    const transcations: Transaction[] = [];
+    const transactions: Transaction[] = [];
 
     toCsvFile.map(async file => {
       const { title, type, value, category } = file;
@@ -31,10 +35,11 @@ class ImportTransactionsService {
         category,
       });
 
-      transcations.push(transaction);
+      transactions.push(transaction);
     });
 
-    return transcations;
+    await transactionsRepository.save(transactions);
+    return transactions;
   }
 }
 

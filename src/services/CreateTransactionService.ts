@@ -1,8 +1,8 @@
 import { getCustomRepository, getRepository } from 'typeorm';
 import Transaction from '../models/Transaction';
 import TransactionsRepository from '../repositories/TransactionsRepository';
-import AppError from '../errors/AppError';
 import Category from '../models/Category';
+import AppError from '../errors/AppError';
 
 interface RequestDTO {
   title: string;
@@ -21,22 +21,9 @@ class CreateTransactionService {
     const categoryRepository = getRepository(Category);
     const transactionRepository = getCustomRepository(TransactionsRepository);
 
-    const categoryExists = await categoryRepository.findOne({
+    let categoryTitle = await categoryRepository.findOne({
       where: { title: category },
     });
-
-    let category_id;
-
-    if (categoryExists) {
-      category_id = categoryExists.id;
-    } else {
-      const newCategory = categoryRepository.create({
-        title: category,
-      });
-
-      await categoryRepository.save(newCategory);
-      category_id = newCategory.id;
-    }
 
     const { total } = await transactionRepository.getBalance();
 
@@ -44,11 +31,19 @@ class CreateTransactionService {
       throw new AppError('Insuficient value to outcome transactions');
     }
 
+    if (!categoryTitle) {
+      categoryTitle = categoryRepository.create({
+        title: category,
+      });
+
+      await categoryRepository.save(categoryTitle);
+    }
+
     const transaction = transactionRepository.create({
       title,
       type,
       value,
-      category_id,
+      category: categoryTitle,
     });
 
     await transactionRepository.save(transaction);
